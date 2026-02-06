@@ -2,20 +2,45 @@ from mcp.server.fastmcp import FastMCP
 
 mcp = FastMCP("super-tools-mcp-server")
 
-@mcp.tool()
-def get_tech_trends() -> list[str]:
-    """Returns the top 5 trending technology keywords."""
-    return ["AI Agents", "Quantum Computing", "Rust", "WebAssembly", "Edge Computing"]
+import httpx
+from mcp.server.fastmcp import FastMCP
+
+mcp = FastMCP("super-tools-mcp-server")
 
 @mcp.tool()
-def get_finance_trends() -> list[str]:
-    """Returns the top 5 trending finance keywords."""
-    return ["Crypto ETFs", "Decentralized Finance", "Green Bonds", "Algorithmic Trading", "Micro-investing"]
+async def get_tech_trends() -> list[str]:
+    """Returns the top 5 trending active stories from Hacker News."""
+    async with httpx.AsyncClient() as client:
+        # Get top stories
+        resp = await client.get("https://hacker-news.firebaseio.com/v0/topstories.json")
+        story_ids = resp.json()[:5]
+        
+        stories = []
+        for sid in story_ids:
+            story_resp = await client.get(f"https://hacker-news.firebaseio.com/v0/item/{sid}.json")
+            stories.append(story_resp.json().get("title", "Unknown"))
+        return stories
 
 @mcp.tool()
-def get_entertainment_trends() -> list[str]:
-    """Returns the top 5 trending entertainment keywords."""
-    return ["Immersive VR", "Interactive Streaming", "Short-form Video", "Indie Game Revival", "Virtual Concerts"]
+async def get_finance_trends() -> list[str]:
+    """Returns the top 5 trending coins from CoinGecko."""
+    async with httpx.AsyncClient() as client:
+        resp = await client.get("https://api.coingecko.com/api/v3/search/trending")
+        data = resp.json()
+        # Extract coin names from the trending list
+        coins = [item["item"]["name"] for item in data["coins"][:5]]
+        return coins
+
+@mcp.tool()
+async def get_entertainment_trends() -> list[str]:
+    """Returns the top 5 trending movies from iTunes."""
+    async with httpx.AsyncClient() as client:
+        resp = await client.get("https://itunes.apple.com/us/rss/topmovies/limit=5/json")
+        data = resp.json()
+        entries = data["feed"]["entry"]
+        # Handle case where entries might be a dict if limit=1, but here limit=5
+        movies = [entry["im:name"]["label"] for entry in entries]
+        return movies
 
 if __name__ == "__main__":
     mcp.run()
